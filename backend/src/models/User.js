@@ -172,6 +172,18 @@ class User {
       throw error;
     }
   }
+  
+  // 更新用户最后登录时间
+  static async updateLastLoginTime(userId) {
+    try {
+      const query = 'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?';
+      await pool.execute(query, [userId]);
+      return true;
+    } catch (error) {
+      console.error('更新用户登录时间失败:', error.message);
+      throw error;
+    }
+  }
 }
 
-module.exports = User; 
+module.exports = User;

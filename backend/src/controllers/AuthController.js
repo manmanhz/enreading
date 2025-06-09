@@ -107,9 +107,7 @@ class AuthController {
       }
 
       // 验证密码
-      const saltRounds = 10;
-      const password_hash = await bcrypt.hash(password, saltRounds);
-      const isValidPassword = await bcrypt.compare(password_hash, user.password_hash);
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
       if (!isValidPassword) {
         return res.status(401).json({
           success: false,

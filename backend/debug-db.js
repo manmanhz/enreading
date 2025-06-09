@@ -141,11 +141,11 @@ async function main() {
   console.log('3. 如果用户/密码错误，请检查.env文件');
   console.log('4. 如果数据库不存在，请执行: mysql -u root -p < database/init.sql');
 
-  const saltRounds = 10;
-  const password_hash = await bcrypt.hash('123456', saltRounds);
-  console.log(password_hash);
   const existingUser = await User.findByEmail('rietsu@foxmail.com');
   console.log(existingUser.password_hash);
+  bcrypt.compare('123456', existingUser.password_hash).then((res) => {
+    console.log(res);
+  })
 }
 
 if (require.main === module) {
