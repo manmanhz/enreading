@@ -229,3 +229,9 @@ ipython_config.py
 uploads/
 cache/
 sessions/ 
+
+# dict
+dict/ECDICT/*.csv
+dict/ECDICT/.git*
+dict/ECDICT/*.7z
+dict/ECDICT/*.txt
