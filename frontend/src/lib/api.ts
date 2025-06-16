@@ -191,12 +191,12 @@ export const vocabularyApi = {
 // 字典相关API
 export const dictionaryApi = {
   lookup: async (word: string): Promise<ApiResponse<DictionaryDefinition>> => {
-    const response = await api.get(`/dictionary/lookup/${word}`)
+    const response = await api.get(`/dictionary/define/${word}`)
     return response.data
   },
 
   batchLookup: async (words: string[]): Promise<ApiResponse<DictionaryDefinition[]>> => {
-    const response = await api.post('/dictionary/batch-lookup', { words })
+    const response = await api.post('/dictionary/batch', { words })
     return response.data
   },
 
@@ -246,4 +246,4 @@ export const readingApi = {
   },
 }
 
-export default api 
+export default api

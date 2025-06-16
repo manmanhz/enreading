@@ -40,6 +40,11 @@ class DictionaryService {
         priority: 5,
         baseURL: 'https://api.dictionaryapi.dev/api/v2/entries/en',
         active: true // 免费API，始终可用
+      }],
+      ['stardict', {
+        name: 'stardict',
+        priority: 0, // 最高优先级，本地数据库
+        active: true // 本地ECDICT数据库
       }]
     ]);
   }
@@ -186,6 +191,8 @@ class DictionaryService {
   // 查询单个字典源
   async queryDictionary(dict, word) {
     switch (dict.name) {
+      case 'stardict':
+        return await this.queryStardict(dict, word);
       case 'oxford':
         return await this.queryOxford(dict, word);
       case 'freedict':
@@ -452,6 +459,108 @@ class DictionaryService {
       audio: null
     };
   }
+
+  // 查询本地ECDICT数据库
+  async queryStardict(dict, word) {
+    try {
+      // 直接查询stardict表
+      const [rows] = await pool.execute(
+        'SELECT * FROM stardict WHERE word = ? LIMIT 1',
+        [word.toLowerCase()]
+      );
+
+      if (rows.length === 0) {
+        // 如果精确匹配失败，尝试模糊匹配
+        const [fuzzyRows] = await pool.execute(
+          'SELECT * FROM stardict WHERE word LIKE ? ORDER BY word LIMIT 5',
+          [`${word.toLowerCase()}%`]
+        );
+        
+        if (fuzzyRows.length === 0) {
+          throw new Error('Word not found in ECDICT');
+        }
+        
+        // 返回第一个匹配结果
+        const result = fuzzyRows[0];
+        return this.formatStardictResult(result, true);
+      }
+
+      const result = rows[0];
+      return this.formatStardictResult(result, false);
+    } catch (error) {
+      console.error('Stardict query error:', error);
+      throw error;
+    }
+  }
+
+  // 格式化ECDICT查询结果
+  formatStardictResult(data, isFuzzy = false) {
+    const definitions = [];
+    
+    // 处理英文释义
+    if (data.definition) {
+      const englishDefs = data.definition.split('\n').filter(def => def.trim());
+      englishDefs.forEach(def => {
+        definitions.push({
+          partOfSpeech: data.pos || 'unknown',
+          definition: def.trim(),
+          language: 'en'
+        });
+      });
+    }
+    
+    // 处理中文翻译
+    if (data.translation) {
+      const chineseDefs = data.translation.split('\n').filter(def => def.trim());
+      chineseDefs.forEach(def => {
+        definitions.push({
+          partOfSpeech: data.pos || 'unknown',
+          definition: def.trim(),
+          language: 'zh'
+        });
+      });
+    }
+
+    // 处理词形变化
+    const exchanges = [];
+    if (data.exchange) {
+      const exchangeParts = data.exchange.split('/');
+      exchangeParts.forEach(part => {
+        const [type, form] = part.split(':');
+        if (type && form) {
+          const typeMap = {
+            'p': '过去式',
+            'd': '过去分词', 
+            'i': '现在分词',
+            '3': '第三人称单数',
+            'r': '比较级',
+            't': '最高级',
+            's': '复数',
+            '0': '原型'
+          };
+          exchanges.push({
+            type: typeMap[type] || type,
+            form: form
+          });
+        }
+      });
+    }
+
+    return {
+      word: data.word,
+      phonetic: data.phonetic || null,
+      definitions: definitions,
+      examples: [], // ECDICT暂时没有例句数据
+      audio: data.audio || null,
+      collins: data.collins || null,
+      oxford: data.oxford ? true : false,
+      bnc: data.bnc || null,
+      frq: data.frq || null,
+      exchanges: exchanges,
+      tags: data.tag ? data.tag.split(' ').filter(tag => tag.trim()) : [],
+      isFuzzyMatch: isFuzzy
+    };
+  }
 }
 
-module.exports = new DictionaryService(); 
+module.exports = new DictionaryService();

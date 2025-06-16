@@ -96,13 +96,29 @@ export interface ReadingRecord {
 
 export interface DictionaryDefinition {
   word: string
-  pronunciation?: string
+  phonetic?: string
   definitions: {
-    part_of_speech: string
+    partOfSpeech: string
     definition: string
-    examples: string[]
+    language?: string
+    source?: string
   }[]
-  source: string
+  examples: string[]
+  audio?: string
+  sources: string[]
+  quality: number
+  timestamp: string
+  collins?: number
+  oxford?: boolean
+  bnc?: number
+  frq?: number
+  exchanges?: {
+    type: string
+    form: string
+  }[]
+  tags?: string[]
+  isFuzzyMatch?: boolean
+  _cached?: boolean
 }
 
 export interface AuthResponse {
@@ -136,4 +152,4 @@ export interface UpdateProgressRequest {
   reading_position?: number
   reading_duration?: number
   is_completed?: boolean
-} 
+}

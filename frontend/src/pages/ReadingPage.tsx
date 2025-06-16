@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { articleApi, vocabularyApi, dictionaryApi } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
+import { DictionaryDefinition } from '../types'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import toast from 'react-hot-toast'
@@ -30,16 +31,7 @@ interface ReadingSettings {
   wordClick: boolean
 }
 
-interface WordDefinition {
-  word: string
-  pronunciation?: string
-  definitions: Array<{
-    part_of_speech: string
-    definition: string
-    examples: string[]
-  }>
-  source: string
-}
+// 使用导入的DictionaryDefinition类型
 
 const ReadingPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -52,7 +44,7 @@ const ReadingPage = () => {
   const [readingTime, setReadingTime] = useState(0)
   const [startTime] = useState(Date.now())
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
-  const [wordDefinition, setWordDefinition] = useState<WordDefinition | null>(null)
+  const [wordDefinition, setWordDefinition] = useState<DictionaryDefinition | null>(null)
   const [showDefinition, setShowDefinition] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [settings, setSettings] = useState<ReadingSettings>({
@@ -354,32 +346,83 @@ const ReadingPage = () => {
 
               {wordDefinition ? (
                 <div className="space-y-4">
-                  {wordDefinition.pronunciation && (
+                  {/* 音标和发音 */}
+                  {wordDefinition.phonetic && (
                     <div className="flex items-center gap-2">
                       <span className="text-secondary-600">
-                        /{wordDefinition.pronunciation}/
+                        /{wordDefinition.phonetic}/
                       </span>
-                      <Button variant="ghost" size="sm">
-                        <Volume2 className="h-4 w-4" />
-                      </Button>
+                      {wordDefinition.audio && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            const audio = new Audio(wordDefinition.audio)
+                            audio.play().catch(console.error)
+                          }}
+                        >
+                          <Volume2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   )}
 
+                  {/* 词形变化 */}
+                  {wordDefinition.exchanges && wordDefinition.exchanges.length > 0 && (
+                    <div className="text-sm text-secondary-600">
+                      <span className="font-medium">词形变化: </span>
+                      {wordDefinition.exchanges.map((ex, i) => (
+                        <span key={i} className="mr-2">
+                          {ex.type}: {ex.form}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 释义 */}
                   {wordDefinition.definitions.map((def, index) => (
                     <div key={index} className="border-l-4 border-primary-200 pl-4">
                       <div className="font-medium text-primary-600 mb-1">
-                        {def.part_of_speech}
+                        {def.partOfSpeech}
+                        {def.language && (
+                          <span className="ml-2 text-xs bg-gray-100 px-1 rounded">
+                            {def.language === 'zh' ? '中文' : '英文'}
+                          </span>
+                        )}
                       </div>
                       <div className="text-secondary-900 mb-2">
                         {def.definition}
                       </div>
-                      {def.examples.length > 0 && (
-                        <div className="text-sm text-secondary-600">
-                          例句: {def.examples[0]}
-                        </div>
-                      )}
                     </div>
                   ))}
+
+                  {/* 例句 */}
+                  {wordDefinition.examples && wordDefinition.examples.length > 0 && (
+                    <div className="border-l-4 border-green-200 pl-4">
+                      <div className="font-medium text-green-600 mb-1">例句</div>
+                      {wordDefinition.examples.slice(0, 2).map((example, index) => (
+                        <div key={index} className="text-sm text-secondary-600 mb-1">
+                          {example}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 词典信息 */}
+                  <div className="text-xs text-secondary-500 space-y-1">
+                    {wordDefinition.sources && (
+                      <div>来源: {wordDefinition.sources.join(', ')}</div>
+                    )}
+                    {wordDefinition.collins && (
+                      <div>柯林斯星级: {'★'.repeat(wordDefinition.collins)}</div>
+                    )}
+                    {wordDefinition.oxford && (
+                      <div className="text-blue-600">牛津词典收录</div>
+                    )}
+                    {wordDefinition.isFuzzyMatch && (
+                      <div className="text-orange-600">模糊匹配结果</div>
+                    )}
+                  </div>
 
                   <div className="flex gap-2 pt-4 border-t">
                     {token && (
@@ -557,4 +600,4 @@ const ReadingPage = () => {
   )
 }
 
-export default ReadingPage 
+export default ReadingPage
