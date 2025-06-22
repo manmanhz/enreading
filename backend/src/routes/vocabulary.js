@@ -279,6 +279,136 @@ router.post('/:word/review', vocabLimiter, authenticateToken, VocabularyControll
 
 /**
  * @swagger
+ * /api/vocabulary/practice/quiz:
+ *   get:
+ *     summary: 获取背诵练习题目
+ *     tags: [词库]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: mode
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [definition_to_word, chinese_to_word, word_to_chinese]
+ *         description: 练习模式
+ *       - in: query
+ *         name: count
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 20
+ *           default: 10
+ *         description: 题目数量
+ *     responses:
+ *       200:
+ *         description: 练习题目
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     mode:
+ *                       type: string
+ *                     questions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           word:
+ *                             type: string
+ *                           question:
+ *                             type: string
+ *                           options:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                           correctAnswer:
+ *                             type: string
+ *                           pronunciation:
+ *                             type: string
+ *                           part_of_speech:
+ *                             type: string
+ *                     total:
+ *                       type: integer
+ */
+router.get('/practice/quiz', vocabLimiter, authenticateToken, VocabularyController.getPracticeQuiz);
+
+/**
+ * @swagger
+ * /api/vocabulary/practice/result:
+ *   post:
+ *     summary: 提交背诵练习结果
+ *     tags: [词库]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - mode
+ *               - results
+ *             properties:
+ *               mode:
+ *                 type: string
+ *                 enum: [definition_to_word, chinese_to_word, word_to_chinese]
+ *               results:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - word
+ *                     - isCorrect
+ *                     - userAnswer
+ *                     - correctAnswer
+ *                   properties:
+ *                     word:
+ *                       type: string
+ *                     isCorrect:
+ *                       type: boolean
+ *                     userAnswer:
+ *                       type: string
+ *                     correctAnswer:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: 练习结果已提交
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     mode:
+ *                       type: string
+ *                     totalQuestions:
+ *                       type: integer
+ *                     correctAnswers:
+ *                       type: integer
+ *                     accuracy:
+ *                       type: number
+ *                     results:
+ *                       type: array
+ */
+router.post('/practice/result', vocabLimiter, authenticateToken, VocabularyController.submitPracticeResult);
+
+/**
+ * @swagger
  * /api/vocabulary/{word}:
  *   delete:
  *     summary: 删除单词
@@ -299,4 +429,4 @@ router.post('/:word/review', vocabLimiter, authenticateToken, VocabularyControll
  */
 router.delete('/:word', vocabLimiter, authenticateToken, VocabularyController.deleteWord);
 
-module.exports = router; 
+module.exports = router;

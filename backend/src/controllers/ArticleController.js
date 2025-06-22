@@ -267,8 +267,16 @@ class ArticleController {
   // 更新阅读进度
   static async updateProgress(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user?.id;
       const { id: articleId } = req.params;
+
+      // 验证userId
+      if (!userId || isNaN(parseInt(userId))) {
+        return res.status(400).json({
+          success: false,
+          message: '无效的用户ID'
+        });
+      }
 
       if (!articleId || isNaN(parseInt(articleId))) {
         return res.status(400).json({
@@ -308,7 +316,7 @@ class ArticleController {
       }
 
       // 更新阅读记录
-      await ReadingRecord.upsert(userId, articleId, value);
+      await ReadingRecord.upsert(parseInt(userId), parseInt(articleId), value);
 
       res.json({
         success: true,
@@ -357,4 +365,4 @@ class ArticleController {
   }
 }
 
-module.exports = ArticleController; 
+module.exports = ArticleController;

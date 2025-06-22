@@ -27,13 +27,13 @@ except ImportError as e:
 # --- Configuration --- 
 # These will be prompted or can be hardcoded if preferred.
 DEFAULT_MYSQL_CONFIG = {
-    'host': '192.168.50.26',
+    'host': 'localhost',
     'user': 'root', # Common default, change as needed
-    'passwd': 'default',   # Prompt user for password
-    'db': 'enreading', # Default database name
-    'port': 13306 # Optional, MySQLdb defaults to 3306
+    'passwd': '',   # Prompt user for password
+    'db': 'test', # Default database name
+    'port': 3306 # Optional, MySQLdb defaults to 3306
 }
-DEFAULT_CSV_FILE_PATH = '/Users/rietsu/code/5amprojects/enreading/dict/ECDICT/ecdict.csv' # Placeholder
+DEFAULT_CSV_FILE_PATH = '/Users/rietsu/code/5amprojects/enreading/dict/ECDICT/stardict.csv' # Placeholder
 PROGRESS_FILE = '/Users/rietsu/code/5amprojects/enreading/dict/ECDICT/import_progress.json'
 DEFAULT_BATCH_SIZE = 5000  # 增加批处理大小以提高性能
 MAX_RETRIES = 3  # 最大重试次数

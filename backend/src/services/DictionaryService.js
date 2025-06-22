@@ -280,6 +280,44 @@ class DictionaryService {
       throw new Error('No dictionary sources available');
     }
 
+    // 优先使用stardict的结果
+    const stardictResult = results.find(r => r.source === 'stardict');
+    const freedictResult = results.find(r => r.source === 'freedict');
+    
+    // 如果有stardict结果，优先使用stardict
+    if (stardictResult) {
+      return {
+        word: stardictResult.data.word,
+        phonetic: stardictResult.data.phonetic || this.selectBestPhonetic(results),
+        definitions: stardictResult.data.definitions,
+        examples: stardictResult.data.examples || this.selectBestExamples(results),
+        audio: freedictResult?.data.audio || this.selectBestAudio(results), // 优先使用freedict的audio
+        sources: [stardictResult.source],
+        quality: this.calculateQuality([stardictResult]),
+        timestamp: new Date().toISOString(),
+        collins: stardictResult.data.collins,
+        oxford: stardictResult.data.oxford,
+        exchanges: stardictResult.data.exchanges,
+        tags: stardictResult.data.tags,
+        isFuzzyMatch: stardictResult.data.isFuzzyMatch
+      };
+    }
+    
+    // 如果没有stardict但有freedict，使用freedict
+    if (freedictResult) {
+      return {
+        word: freedictResult.data.word,
+        phonetic: freedictResult.data.phonetic || this.selectBestPhonetic(results),
+        definitions: freedictResult.data.definitions,
+        examples: freedictResult.data.examples || this.selectBestExamples(results),
+        audio: freedictResult.data.audio,
+        sources: [freedictResult.source],
+        quality: this.calculateQuality([freedictResult]),
+        timestamp: new Date().toISOString()
+      };
+    }
+    
+    // 如果都没有，使用原来的逻辑
     const primary = results[0];
     
     return {
@@ -497,13 +535,45 @@ class DictionaryService {
   formatStardictResult(data, isFuzzy = false) {
     const definitions = [];
     
+    // 词性映射
+    const posMap = {
+      'n.': 'noun',
+      'v.': 'verb', 
+      'vt.': 'verb',
+      'vi.': 'verb',
+      'a.': 'adjective',
+      'adj.': 'adjective',
+      'adv.': 'adverb',
+      'prep.': 'preposition',
+      'conj.': 'conjunction',
+      'pron.': 'pronoun',
+      'int.': 'interjection',
+      'art.': 'article',
+      'num.': 'numeral'
+    };
+    
+    // 提取词性的辅助函数
+    const extractPartOfSpeech = (defText) => {
+      const match = defText.match(/^([a-z]+\.)\s*/);
+      if (match) {
+        const pos = match[1];
+        return posMap[pos] || pos;
+      }
+      return 'unknown';
+    };
+    
     // 处理英文释义
     if (data.definition) {
       const englishDefs = data.definition.split('\n').filter(def => def.trim());
       englishDefs.forEach(def => {
+        const trimmedDef = def.trim();
+        const partOfSpeech = extractPartOfSpeech(trimmedDef);
+        // 移除词性标记，只保留定义内容
+        const cleanDefinition = trimmedDef.replace(/^[a-z]+\.\s*/, '');
+        
         definitions.push({
-          partOfSpeech: data.pos || 'unknown',
-          definition: def.trim(),
+          partOfSpeech: partOfSpeech,
+          definition: cleanDefinition,
           language: 'en'
         });
       });
@@ -513,9 +583,14 @@ class DictionaryService {
     if (data.translation) {
       const chineseDefs = data.translation.split('\n').filter(def => def.trim());
       chineseDefs.forEach(def => {
+        const trimmedDef = def.trim();
+        const partOfSpeech = extractPartOfSpeech(trimmedDef);
+        // 移除词性标记，只保留定义内容
+        const cleanDefinition = trimmedDef.replace(/^[a-z]+\.\s*/, '');
+        
         definitions.push({
-          partOfSpeech: data.pos || 'unknown',
-          definition: def.trim(),
+          partOfSpeech: partOfSpeech,
+          definition: cleanDefinition,
           language: 'zh'
         });
       });

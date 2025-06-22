@@ -34,7 +34,7 @@ class VocabularyController {
       }
 
       // 从字典服务获取单词定义
-      const definition = await DictionaryService.lookup(word);
+      const definition = await DictionaryService.getWordDefinition(word);
       if (!definition || !definition.word) {
         return res.status(404).json({
           success: false,
@@ -255,6 +255,166 @@ class VocabularyController {
     }
   }
 
+  // 获取背诵练习题目
+  static async getPracticeQuiz(req, res) {
+    try {
+      const userId = req.user.id;
+      
+      const schema = Joi.object({
+        mode: Joi.string().valid('definition_to_word', 'chinese_to_word', 'word_to_chinese').required(),
+        count: Joi.number().integer().min(1).max(20).default(10)
+      });
+
+      const { error, value } = schema.validate(req.query);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.details[0].message
+        });
+      }
+
+      const { mode, count } = value;
+      
+      // 获取用户词库中的单词
+      const userWordsResult = await UserVocabulary.getWords(userId, {
+        page: 1,
+        limit: count * 4, // 获取更多单词用于生成选项
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      });
+
+      const userWords = userWordsResult.words;
+
+      if (userWords.length < count) {
+        return res.status(400).json({
+          success: false,
+          message: `词库中单词数量不足，至少需要${count}个单词`
+        });
+      }
+
+      // 随机选择题目单词
+      const shuffled = userWords.sort(() => 0.5 - Math.random());
+      const questionWords = shuffled.slice(0, count);
+      const optionWords = shuffled.slice(count);
+
+      const questions = questionWords.map((word, index) => {
+        // 为每个题目生成3个错误选项
+        const wrongOptions = optionWords
+          .filter(w => w.word !== word.word)
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 3);
+
+        let question, correctAnswer, options;
+
+        switch (mode) {
+          case 'definition_to_word':
+            question = word.definition;
+            correctAnswer = word.word;
+            options = [word.word, ...wrongOptions.map(w => w.word)];
+            break;
+          
+          case 'chinese_to_word':
+            // 从definition中提取中文释义（假设格式为"英文释义；中文释义"）
+            const chineseDefinition = word.definition.split('；')[1] || word.definition;
+            question = chineseDefinition;
+            correctAnswer = word.word;
+            options = [word.word, ...wrongOptions.map(w => w.word)];
+            break;
+          
+          case 'word_to_chinese':
+            question = word.word;
+            correctAnswer = word.definition.split('；')[1] || word.definition;
+            options = [correctAnswer, ...wrongOptions.map(w => w.definition.split('；')[1] || w.definition)];
+            break;
+        }
+
+        // 随机打乱选项顺序
+        options.sort(() => 0.5 - Math.random());
+
+        return {
+          id: index + 1,
+          word: word.word,
+          question,
+          options,
+          correctAnswer,
+          pronunciation: word.pronunciation,
+          part_of_speech: word.part_of_speech
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          mode,
+          questions,
+          total: questions.length
+        }
+      });
+    } catch (error) {
+      console.error('Get practice quiz error:', error);
+      res.status(500).json({
+        success: false,
+        message: '获取练习题目失败'
+      });
+    }
+  }
+
+  // 提交背诵练习结果
+  static async submitPracticeResult(req, res) {
+    try {
+      const userId = req.user.id;
+      
+      const schema = Joi.object({
+        mode: Joi.string().valid('definition_to_word', 'chinese_to_word', 'word_to_chinese').required(),
+        results: Joi.array().items(
+          Joi.object({
+            word: Joi.string().required(),
+            isCorrect: Joi.boolean().required(),
+            userAnswer: Joi.string().required(),
+            correctAnswer: Joi.string().required()
+          })
+        ).required()
+      });
+
+      const { error, value } = schema.validate(req.body);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.details[0].message
+        });
+      }
+
+      const { mode, results } = value;
+      
+      // 更新每个单词的复习记录
+      for (const result of results) {
+        await UserVocabulary.incrementReviewCount(userId, result.word, result.isCorrect);
+      }
+
+      // 计算统计信息
+      const totalQuestions = results.length;
+      const correctAnswers = results.filter(r => r.isCorrect).length;
+      const accuracy = totalQuestions > 0 ? (correctAnswers / totalQuestions * 100).toFixed(1) : 0;
+
+      res.json({
+        success: true,
+        data: {
+          mode,
+          totalQuestions,
+          correctAnswers,
+          accuracy: parseFloat(accuracy),
+          results
+        }
+      });
+    } catch (error) {
+      console.error('Submit practice result error:', error);
+      res.status(500).json({
+        success: false,
+        message: '提交练习结果失败'
+      });
+    }
+  }
+
   // 获取单词详情
   static async getWordDetail(req, res) {
     try {
@@ -383,4 +543,4 @@ class VocabularyController {
   }
 }
 
-module.exports = VocabularyController; 
+module.exports = VocabularyController;

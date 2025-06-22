@@ -10,25 +10,32 @@ class UserVocabulary {
       part_of_speech,
       example_sentence,
       source_article_id,
-      source_context
+      source_context,
+      note
     } = wordData;
+    
+    // 构建definition_snapshot JSON对象
+    const definitionSnapshot = {
+      definition: definition || '',
+      pronunciation: pronunciation || '',
+      part_of_speech: part_of_speech || '',
+      example_sentence: example_sentence || ''
+    };
     
     const query = `
       INSERT INTO user_vocabulary (
-        user_id, word, definition, pronunciation, part_of_speech,
-        example_sentence, source_article_id, source_context,
+        user_id, word, article_id, context, definition_snapshot, note,
         mastery_level, review_count, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'learning', 0, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, 'learning', 0, NOW(), NOW())
       ON DUPLICATE KEY UPDATE
-        definition = VALUES(definition),
-        pronunciation = VALUES(pronunciation),
-        example_sentence = VALUES(example_sentence),
+        definition_snapshot = VALUES(definition_snapshot),
+        note = VALUES(note),
         updated_at = NOW()
     `;
     
     const [result] = await pool.execute(query, [
-      userId, word.toLowerCase(), definition, pronunciation, part_of_speech,
-      example_sentence, source_article_id, source_context
+      userId, word.toLowerCase(), source_article_id, source_context, 
+      JSON.stringify(definitionSnapshot), note || null
     ]);
     
     return result;
@@ -55,7 +62,7 @@ class UserVocabulary {
     }
     
     if (search) {
-      whereClause += ' AND (uv.word LIKE ? OR uv.definition LIKE ?)';
+      whereClause += ' AND (uv.word LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(uv.definition_snapshot, "$.definition")) LIKE ?)';
       params.push(`%${search}%`, `%${search}%`);
     }
     
@@ -68,14 +75,29 @@ class UserVocabulary {
         uv.*,
         a.title as source_article_title
       FROM user_vocabulary uv
-      LEFT JOIN articles a ON uv.source_article_id = a.id
+      LEFT JOIN articles a ON uv.article_id = a.id
       ${whereClause}
       ORDER BY uv.${sortColumn} ${sortDirection}
-      LIMIT ? OFFSET ?
+      LIMIT ${limit} OFFSET ${offset}
     `;
     
-    params.push(limit, offset);
     const [rows] = await pool.execute(query, params);
+    
+    // 解析definition_snapshot JSON字段
+    const wordsWithParsedData = rows.map(row => {
+      if (row.definition_snapshot) {
+        try {
+          const snapshot = row.definition_snapshot;
+          row.definition = snapshot.definition;
+          row.pronunciation = snapshot.pronunciation;
+          row.part_of_speech = snapshot.part_of_speech;
+          row.example_sentence = snapshot.example_sentence;
+        } catch (e) {
+          console.error('Error parsing definition_snapshot:', e);
+        }
+      }
+      return row;
+    });
     
     // 获取总数
     const countQuery = `
@@ -83,11 +105,12 @@ class UserVocabulary {
       FROM user_vocabulary uv
       ${whereClause}
     `;
-    const countParams = params.slice(0, -2);
+    // 对于count查询，我们需要所有的WHERE条件参数，但不需要LIMIT和OFFSET
+    const countParams = [...params];
     const [countResult] = await pool.execute(countQuery, countParams);
     
     return {
-      words: rows,
+      words: wordsWithParsedData,
       total: countResult[0].total,
       page,
       limit,
@@ -130,14 +153,40 @@ class UserVocabulary {
   }
   
   // 增加复习次数
-  static async incrementReviewCount(userId, word) {
+  static async incrementReviewCount(userId, word, isCorrect = true) {
+    // 计算下次复习时间（间隔重复算法）
+    const getNextReviewInterval = (reviewCount, isCorrect) => {
+      if (!isCorrect) return 1; // 答错了，1天后再复习
+      
+      // 简单的间隔重复算法
+      const intervals = [1, 3, 7, 14, 30, 90]; // 天数
+      const index = Math.min(reviewCount, intervals.length - 1);
+      return intervals[index];
+    };
+    
     const query = `
       UPDATE user_vocabulary 
-      SET review_count = review_count + 1, last_reviewed_at = NOW(), updated_at = NOW()
+      SET review_count = review_count + 1, 
+          correct_count = correct_count + ?,
+          last_reviewed_at = NOW(),
+          next_review_at = DATE_ADD(NOW(), INTERVAL ? DAY),
+          updated_at = NOW()
       WHERE user_id = ? AND word = ?
     `;
     
-    const [result] = await pool.execute(query, [userId, word.toLowerCase()]);
+    // 先获取当前的review_count
+    const getCurrentCount = `SELECT review_count FROM user_vocabulary WHERE user_id = ? AND word = ?`;
+    const [countResult] = await pool.execute(getCurrentCount, [userId, word.toLowerCase()]);
+    const currentCount = countResult[0]?.review_count || 0;
+    
+    const nextInterval = getNextReviewInterval(currentCount, isCorrect);
+    
+    const [result] = await pool.execute(query, [
+      isCorrect ? 1 : 0, 
+      nextInterval,
+      userId, 
+      word.toLowerCase()
+    ]);
     return result.affectedRows > 0;
   }
   
@@ -157,7 +206,9 @@ class UserVocabulary {
       WHERE user_id = ? 
       AND mastery_level IN ('learning', 'familiar')
       AND (
-        last_reviewed_at IS NULL 
+        next_review_at IS NULL 
+        OR next_review_at <= NOW()
+        OR last_reviewed_at IS NULL 
         OR last_reviewed_at < DATE_SUB(NOW(), INTERVAL 
           CASE 
             WHEN mastery_level = 'learning' THEN 1
@@ -166,12 +217,27 @@ class UserVocabulary {
           END DAY
         )
       )
-      ORDER BY last_reviewed_at ASC, created_at ASC
-      LIMIT ?
+      ORDER BY next_review_at ASC, last_reviewed_at ASC, created_at ASC
+      LIMIT ${limit}
     `;
     
-    const [rows] = await pool.execute(query, [userId, limit]);
-    return rows;
+    const [rows] = await pool.execute(query, [userId]);
+    
+    // 解析definition_snapshot JSON字段
+    return rows.map(row => {
+      if (row.definition_snapshot) {
+        try {
+          const snapshot = JSON.parse(row.definition_snapshot);
+          row.definition = snapshot.definition;
+          row.pronunciation = snapshot.pronunciation;
+          row.part_of_speech = snapshot.part_of_speech;
+          row.example_sentence = snapshot.example_sentence;
+        } catch (e) {
+          console.error('Error parsing definition_snapshot:', e);
+        }
+      }
+      return row;
+    });
   }
   
   // 检查单词是否在用户词库中
@@ -190,13 +256,28 @@ class UserVocabulary {
         a.title as source_article_title,
         a.id as source_article_id
       FROM user_vocabulary uv
-      LEFT JOIN articles a ON uv.source_article_id = a.id
+      LEFT JOIN articles a ON uv.article_id = a.id
       WHERE uv.user_id = ? AND uv.word = ?
     `;
     
     const [rows] = await pool.execute(query, [userId, word.toLowerCase()]);
-    return rows[0] || null;
+    const result = rows[0] || null;
+    
+    // 解析definition_snapshot JSON字段
+    if (result && result.definition_snapshot) {
+      try {
+        const snapshot = JSON.parse(result.definition_snapshot);
+        result.definition = snapshot.definition;
+        result.pronunciation = snapshot.pronunciation;
+        result.part_of_speech = snapshot.part_of_speech;
+        result.example_sentence = snapshot.example_sentence;
+      } catch (e) {
+        console.error('Error parsing definition_snapshot:', e);
+      }
+    }
+    
+    return result;
   }
 }
 
-module.exports = UserVocabulary; 
+module.exports = UserVocabulary;

@@ -56,10 +56,8 @@ class Article {
       ${readingJoin}
       WHERE ${whereClause}
       ORDER BY a.published_at DESC
-      LIMIT ? OFFSET ?
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    
-    params.push(limit, offset);
     
     const [rows] = await pool.execute(query, params);
     
@@ -200,16 +198,16 @@ class Article {
       WHERE status = "published" 
       AND (title LIKE ? OR content LIKE ? OR summary LIKE ?)
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
+      LIMIT ${limit} OFFSET ${offset}
     `;
     
     const searchTerm = `%${keyword}%`;
     const [rows] = await pool.execute(query, [
-      searchTerm, searchTerm, searchTerm, limit, offset
+      searchTerm, searchTerm, searchTerm
     ]);
     
     return rows;
   }
 }
 
-module.exports = Article; 
+module.exports = Article;

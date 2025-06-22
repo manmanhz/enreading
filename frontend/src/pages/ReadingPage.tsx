@@ -83,13 +83,20 @@ const ReadingPage = () => {
     {
       onSuccess: () => {
         toast.success('单词已添加到词汇库')
-        setShowDefinition(false)
+        closeDefinitionModal()
       },
       onError: () => {
         toast.error('添加单词失败')
       }
     }
   )
+
+  // 关闭单词定义弹窗并清空内容
+  const closeDefinitionModal = () => {
+    setShowDefinition(false)
+    setSelectedWord(null)
+    setWordDefinition(null)
+  }
 
   // 自动保存进度
   useEffect(() => {
@@ -338,7 +345,7 @@ const ReadingPage = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowDefinition(false)}
+                  onClick={closeDefinitionModal}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -437,7 +444,7 @@ const ReadingPage = () => {
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => setShowDefinition(false)}
+                      onClick={closeDefinitionModal}
                     >
                       关闭
                     </Button>

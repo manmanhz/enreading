@@ -154,12 +154,12 @@ class StarDict (object):
         c = self.__conn.cursor()
         if not strip:
             sql = 'select id, word from stardict where word >= ? '
-            sql += 'order by word collate nocase limit ?;'
-            c.execute(sql, (word, limit))
+            sql += 'order by word collate nocase limit ${limit};'
+            c.execute(sql, (word))
         else:
             sql = 'select id, word from stardict where sw >= ? '
-            sql += 'order by sw, word collate nocase limit ?;'
-            c.execute(sql, (stripword(word), limit))
+            sql += 'order by sw, word collate nocase limit ${limit};'
+            c.execute(sql, (stripword(word)))
         records = c.fetchall()
         result = []
         for record in records:

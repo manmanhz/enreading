@@ -235,3 +235,6 @@ dict/ECDICT/*.csv
 dict/ECDICT/.git*
 dict/ECDICT/*.7z
 dict/ECDICT/*.txt
+dict/ECDICT/*.sh
+dict/ECDICT/*.sql
+dict/ECDICT/*.gz

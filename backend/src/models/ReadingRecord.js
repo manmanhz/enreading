@@ -74,10 +74,9 @@ class ReadingRecord {
       JOIN articles a ON rr.article_id = a.id
       ${whereClause}
       ORDER BY rr.updated_at DESC
-      LIMIT ? OFFSET ?
+      LIMIT ${limit} OFFSET ${offset}
     `;
     
-    params.push(limit, offset);
     const [rows] = await pool.execute(query, params);
     
     return rows;
@@ -172,10 +171,10 @@ class ReadingRecord {
       JOIN reading_records rr ON a.id = rr.article_id
       GROUP BY a.id
       ORDER BY read_count DESC, avg_progress DESC
-      LIMIT ?
+      LIMIT ${limit}
     `;
     
-    const [rows] = await pool.execute(query, [limit]);
+    const [rows] = await pool.execute(query);
     return rows;
   }
 

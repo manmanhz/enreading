@@ -127,8 +127,8 @@ class DictionaryController {
         FROM dictionary_cache 
         WHERE word LIKE ? 
         ORDER BY access_count DESC, word
-        LIMIT ?
-      `, [`${query}%`, limit]);
+        LIMIT ${limit} 
+      `, [`${query}%`]);
 
       const suggestions = rows.map(row => ({
         word: row.word,
@@ -178,8 +178,8 @@ class DictionaryController {
         FROM dictionary_cache 
         WHERE access_count > 5
         ORDER BY access_count DESC 
-        LIMIT ?
-      `, [limit]);
+        LIMIT ${limit}
+      `);
 
       const popularWords = rows.map(row => ({
         word: row.word,

@@ -186,6 +186,42 @@ export const vocabularyApi = {
     const response = await api.get(`/vocabulary/${word}`)
     return response.data
   },
+
+  getPracticeQuiz: async (mode: 'definition_to_word' | 'chinese_to_word' | 'word_to_chinese', count = 10): Promise<ApiResponse<{
+    mode: string
+    questions: Array<{
+      id: number
+      word: string
+      question: string
+      options: string[]
+      correctAnswer: string
+      pronunciation?: string
+      part_of_speech?: string
+    }>
+    total: number
+  }>> => {
+    const response = await api.get('/vocabulary/practice/quiz', { params: { mode, count } })
+    return response.data
+  },
+
+  submitPracticeResult: async (data: {
+    mode: 'definition_to_word' | 'chinese_to_word' | 'word_to_chinese'
+    results: Array<{
+      word: string
+      isCorrect: boolean
+      userAnswer: string
+      correctAnswer: string
+    }>
+  }): Promise<ApiResponse<{
+    mode: string
+    totalQuestions: number
+    correctAnswers: number
+    accuracy: number
+    results: any[]
+  }>> => {
+    const response = await api.post('/vocabulary/practice/result', data)
+    return response.data
+  },
 }
 
 // 字典相关API

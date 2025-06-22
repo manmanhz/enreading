@@ -44,6 +44,7 @@ export interface ArticleList {
 
 export interface VocabularyWord {
   id: number
+  user_id: number
   word: string
   definition: string
   pronunciation?: string
@@ -51,6 +52,7 @@ export interface VocabularyWord {
   example_sentence?: string
   source_article_id?: number
   source_context?: string
+  context?: string
   mastery_level: 'learning' | 'familiar' | 'mastered'
   review_count: number
   last_reviewed_at?: string

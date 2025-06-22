@@ -190,80 +190,80 @@ INSERT INTO dictionary_sources (name, priority, base_url, is_active) VALUES
 ('free-dictionary', 4, 'https://api.dictionaryapi.dev/api/v2', TRUE);
 
 -- 创建用于全文搜索的视图
-CREATE VIEW article_search AS
-SELECT 
-    id,
-    title,
-    content,
-    summary,
-    category,
-    difficulty_level,
-    word_count,
-    created_at,
-    MATCH(title, content) AGAINST('' IN NATURAL LANGUAGE MODE) as relevance
-FROM articles 
-WHERE status = 'published';
+-- CREATE VIEW article_search AS
+-- SELECT 
+--     id,
+--     title,
+--     content,
+--     summary,
+--     category,
+--     difficulty_level,
+--     word_count,
+--     created_at,
+--     MATCH(title, content) AGAINST('' IN NATURAL LANGUAGE MODE) as relevance
+-- FROM articles 
+-- WHERE status = 'published';
 
-DELIMITER //
+-- DELIMITER //
 
--- 创建存储过程：计算阅读进度百分比
-CREATE PROCEDURE CalculateReadingProgress(
-    IN p_user_id INT,
-    IN p_article_id INT,
-    IN p_current_position INT,
-    OUT p_progress DECIMAL(5,2)
-)
-BEGIN
-    DECLARE article_length INT DEFAULT 0;
+-- -- 创建存储过程：计算阅读进度百分比
+-- CREATE PROCEDURE CalculateReadingProgress(
+--     IN p_user_id INT,
+--     IN p_article_id INT,
+--     IN p_current_position INT,
+--     OUT p_progress DECIMAL(5,2)
+-- )
+-- BEGIN
+--     DECLARE article_length INT DEFAULT 0;
     
-    SELECT CHAR_LENGTH(content) INTO article_length
-    FROM articles 
-    WHERE id = p_article_id;
+--     SELECT CHAR_LENGTH(content) INTO article_length
+--     FROM articles 
+--     WHERE id = p_article_id;
     
-    IF article_length > 0 THEN
-        SET p_progress = (p_current_position / article_length) * 100;
-        IF p_progress > 100 THEN
-            SET p_progress = 100;
-        END IF;
-    ELSE
-        SET p_progress = 0;
-    END IF;
+--     IF article_length > 0 THEN
+--         SET p_progress = (p_current_position / article_length) * 100;
+--         IF p_progress > 100 THEN
+--             SET p_progress = 100;
+--         END IF;
+--     ELSE
+--         SET p_progress = 0;
+--     END IF;
     
-    -- 更新阅读记录
-    INSERT INTO reading_records (user_id, article_id, reading_position, reading_progress)
-    VALUES (p_user_id, p_article_id, p_current_position, p_progress)
-    ON DUPLICATE KEY UPDATE
-        reading_position = p_current_position,
-        reading_progress = p_progress,
-        updated_at = CURRENT_TIMESTAMP;
-END //
+--     -- 更新阅读记录
+--     INSERT INTO reading_records (user_id, article_id, reading_position, reading_progress)
+--     VALUES (p_user_id, p_article_id, p_current_position, p_progress)
+--     ON DUPLICATE KEY UPDATE
+--         reading_position = p_current_position,
+--         reading_progress = p_progress,
+--         updated_at = CURRENT_TIMESTAMP;
+-- END //
 
--- 创建触发器：自动更新文章字数
-CREATE TRIGGER update_word_count
-    BEFORE UPDATE ON articles
-    FOR EACH ROW
-BEGIN
-    IF NEW.content != OLD.content THEN
-        SET NEW.word_count = (
-            CHAR_LENGTH(NEW.content) - CHAR_LENGTH(REPLACE(NEW.content, ' ', '')) + 1
-        );
-    END IF;
-END //
+-- -- 创建触发器：自动更新文章字数
+-- CREATE TRIGGER update_word_count
+--     BEFORE UPDATE ON articles
+--     FOR EACH ROW
+-- BEGIN
+--     IF NEW.content != OLD.content THEN
+--         SET NEW.word_count = (
+--             CHAR_LENGTH(NEW.content) - CHAR_LENGTH(REPLACE(NEW.content, ' ', '')) + 1
+--         );
+--     END IF;
+-- END //
 
--- 创建触发器：自动设置阅读完成状态
-CREATE TRIGGER check_reading_completion
-    BEFORE UPDATE ON reading_records
-    FOR EACH ROW
-BEGIN
-    IF NEW.reading_progress >= 100 THEN
-        SET NEW.is_completed = TRUE;
-        IF NEW.end_time IS NULL THEN
-            SET NEW.end_time = CURRENT_TIMESTAMP;
-        END IF;
-    END IF;
-END //
+-- -- 创建触发器：自动设置阅读完成状态
+-- CREATE TRIGGER check_reading_completion
+--     BEFORE UPDATE ON reading_records
+--     FOR EACH ROW
+-- BEGIN
+--     IF NEW.reading_progress >= 100 THEN
+--         SET NEW.is_completed = TRUE;
+--         IF NEW.end_time IS NULL THEN
+--             SET NEW.end_time = CURRENT_TIMESTAMP;
+--         END IF;
+--     END IF;
+-- END //
 
-DELIMITER ;
+-- DELIMITER ;
 
 -- 创建索引优化查询性能
 CREATE INDEX idx_articles_search ON articles(title(50), category, difficulty_level);
